@@ -1,25 +1,22 @@
-import { supabase } from './supabase';
+// lib/auth.ts
+import { getServerSession } from "next-auth";
+import { authOptions } from "./nextauth"; // <-- Correct path to nextauth.ts
 
-export async function signIn(email: string, password: string) {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-
-  return { data, error };
-}
-
-export async function signOut() {
-  const { error } = await supabase.auth.signOut();
-  return { error };
-}
-
-export async function getUser() {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  return { user, error };
-}
-
+/**
+ * Get the current session on the server
+ */
 export async function getSession() {
-  const { data: { session }, error } = await supabase.auth.getSession();
-  return { session, error };
+  const session = await getServerSession(authOptions);
+  return session;
+}
+
+/**
+ * Check if the user is authenticated
+ */
+export async function requireAuth() {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    throw new Error("Unauthorized");
+  }
+  return session;
 }
