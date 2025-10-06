@@ -1,59 +1,21 @@
-import { ClockIcon, UsersIcon, InboxIcon, BanknoteIcon } from 'lucide-react';
-import { lusitana } from '../fonts';
-import { fetchCardData } from '@/lib/data';
+"use client";
 
-const iconMap = {
-  collected: BanknoteIcon,
-  customers: UsersIcon,
-  pending: ClockIcon,
-  invoices: InboxIcon,
-};
-
-export default async function CardWrapper() {
-  const {
-    numberOfInvoices,
-    numberOfCustomers,
-    totalPaidInvoices,
-    totalPendingInvoices,
-  } = await fetchCardData();
+export default function CardWrapper() {
+  const mockData = [
+    { title: "Active Users", value: 120 },
+    { title: "Invoices", value: 30 },
+    { title: "Revenue", value: "$12,000" },
+    { title: "Growth", value: "15%" },
+  ];
 
   return (
     <>
-      <Card title="Collected" value={totalPaidInvoices} type="collected" />
-      <Card title="Pending" value={totalPendingInvoices} type="pending" />
-      <Card title="Total Invoices" value={numberOfInvoices} type="invoices" />
-      <Card
-        title="Total Customers"
-        value={numberOfCustomers}
-        type="customers"
-      />
+      {mockData.map((card, index) => (
+        <div key={index} className="rounded-2xl border p-4 shadow-sm">
+          <h2 className="text-lg font-semibold">{card.title}</h2>
+          <p className="text-2xl font-bold">{card.value}</p>
+        </div>
+      ))}
     </>
-  );
-}
-
-export function Card({
-  title,
-  value,
-  type,
-}: {
-  title: string;
-  value: number | string;
-  type: 'invoices' | 'customers' | 'pending' | 'collected';
-}) {
-  const Icon = iconMap[type];
-
-  return (
-    <div className="rounded-xl bg-gray-50 p-2 shadow-sm">
-      <div className="flex p-4">
-        {Icon ? <Icon className="h-5 w-5 text-gray-700" /> : null}
-        <h3 className="ml-2 text-sm font-medium">{title}</h3>
-      </div>
-      <p
-        className={`${lusitana.className}
-          truncate rounded-xl bg-white px-4 py-8 text-center text-2xl`}
-      >
-        {value}
-      </p>
-    </div>
   );
 }
