@@ -1,9 +1,22 @@
+// app/api/auth/[...nextauth]/route.ts
 import NextAuth, { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
+
+// Define a type for JWT token
+interface TokenType {
+  id?: string;
+  email?: string;
+}
+
+// Define a type for session user
+interface UserSession {
+  id: string;
+  email: string;
+}
 
 export const authOptions: AuthOptions = {
   providers: [
@@ -18,7 +31,7 @@ export const authOptions: AuthOptions = {
           throw new Error("Please enter both email and password.");
         }
 
-        // 🔍 Find user by email
+        // Find user by email
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
         });
@@ -27,21 +40,14 @@ export const authOptions: AuthOptions = {
           throw new Error("User not found. Please sign up first.");
         }
 
-        // 🔐 Verify password
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        );
-
-        if (!isPasswordValid) {
+        // Verify password
+        const isValid = await bcrypt.compare(credentials.password, user.password);
+        if (!isValid) {
           throw new Error("Invalid email or password.");
         }
 
-        // ✅ Return minimal user object
-        return {
-          id: user.id.toString(),
-          email: user.email,
-        };
+        // Return user object compatible with NextAuth
+        return { id: user.id.toString(), email: user.email };
       },
     }),
   ],
@@ -55,18 +61,20 @@ export const authOptions: AuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
+        (token as TokenType).id = (user as { id: string }).id;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as { id?: string }).id = token.id as string;
+        const userSession = session.user as UserSession;
+        userSession.id = (token as TokenType).id!;
       }
       return session;
     },
   },
 };
 
-const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST };
+// Create the NextAuth handler
+const authHandler = NextAuth(authOptions);
+export { authHandler as GET, authHandler as POST };
