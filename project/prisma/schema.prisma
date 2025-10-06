@@ -13,3 +13,11 @@ model User {
   password  String
   createdAt DateTime @default(now())
 }
+
+model Invoice {
+  id         String   @id @default(cuid())
+  customerId String
+  amount     Int      // stored in cents
+  status     String
+  date       DateTime @default(now())
+}

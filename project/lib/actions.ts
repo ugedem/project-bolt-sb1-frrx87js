@@ -1,150 +1,76 @@
 'use server';
 
-import { supabase } from './supabase';
-import { revalidatePath } from 'next/cache';
+import { PrismaClient } from '@prisma/client';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
-import { signIn } from './auth';
+import { getSession } from './auth';
 
-const FormSchema = z.object({
-  id: z.string(),
-  customerId: z.string({
-    invalid_type_error: 'Please select a customer.',
-  }),
-  amount: z.coerce
-    .number()
-    .gt(0, { message: 'Please enter an amount greater than $0.' }),
-  status: z.enum(['pending', 'paid'], {
-    invalid_type_error: 'Please select an invoice status.',
-  }),
-  date: z.string(),
+const prisma = new PrismaClient();
+
+const InvoiceSchema = z.object({
+  customerId: z.string().nonempty("Please select a customer."),
+  amount: z.coerce.number().gt(0, "Please enter an amount greater than $0."),
+  status: z.enum(['pending', 'paid']),
 });
 
-const CreateInvoice = FormSchema.omit({ id: true, date: true });
-const UpdateInvoice = FormSchema.omit({ id: true, date: true });
-
 export type State = {
-  errors?: {
-    customerId?: string[];
-    amount?: string[];
-    status?: string[];
-  };
+  errors?: Record<string, string[]>;
   message?: string | null;
 };
 
 export async function createInvoice(prevState: State, formData: FormData) {
-  const validatedFields = CreateInvoice.safeParse({
+  const validated = InvoiceSchema.safeParse({
     customerId: formData.get('customerId'),
     amount: formData.get('amount'),
     status: formData.get('status'),
   });
 
-  if (!validatedFields.success) {
-    return {
-      errors: validatedFields.error.flatten().fieldErrors,
-      message: 'Missing Fields. Failed to Create Invoice.',
-    };
+  if (!validated.success) {
+    return { errors: validated.error.flatten().fieldErrors, message: "Failed to create invoice." };
   }
 
-  const { customerId, amount, status } = validatedFields.data;
-  const amountInCents = amount * 100;
-  const date = new Date().toISOString().split('T')[0];
+  const { customerId, amount, status } = validated.data;
 
-  try {
-    const { error } = await supabase
-      .from('invoices')
-      .insert([
-        {
-          customer_id: customerId,
-          amount: amountInCents,
-          status,
-          date,
-        },
-      ]);
+  await prisma.invoice.create({
+    data: { customerId, amount: amount * 100, status, date: new Date() },
+  });
 
-    if (error) throw error;
-  } catch (error) {
-    return {
-      message: 'Database Error: Failed to Create Invoice.',
-    };
-  }
-
-  revalidatePath('/dashboard/invoices');
   redirect('/dashboard/invoices');
 }
 
-export async function updateInvoice(
-  id: string,
-  prevState: State,
-  formData: FormData,
-) {
-  const validatedFields = UpdateInvoice.safeParse({
+export async function updateInvoice(id: string, prevState: State, formData: FormData) {
+  const validated = InvoiceSchema.safeParse({
     customerId: formData.get('customerId'),
     amount: formData.get('amount'),
     status: formData.get('status'),
   });
 
-  if (!validatedFields.success) {
-    return {
-      errors: validatedFields.error.flatten().fieldErrors,
-      message: 'Missing Fields. Failed to Update Invoice.',
-    };
+  if (!validated.success) {
+    return { errors: validated.error.flatten().fieldErrors, message: "Failed to update invoice." };
   }
 
-  const { customerId, amount, status } = validatedFields.data;
-  const amountInCents = amount * 100;
+  const { customerId, amount, status } = validated.data;
 
-  try {
-    const { error } = await supabase
-      .from('invoices')
-      .update({
-        customer_id: customerId,
-        amount: amountInCents,
-        status,
-      })
-      .eq('id', id);
+  await prisma.invoice.update({
+    where: { id },
+    data: { customerId, amount: amount * 100, status },
+  });
 
-    if (error) throw error;
-  } catch (error) {
-    return { message: 'Database Error: Failed to Update Invoice.' };
-  }
-
-  revalidatePath('/dashboard/invoices');
   redirect('/dashboard/invoices');
 }
 
 export async function deleteInvoice(id: string) {
-  try {
-    const { error } = await supabase
-      .from('invoices')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
-
-    revalidatePath('/dashboard/invoices');
-    return { message: 'Deleted Invoice.' };
-  } catch (error) {
-    return { message: 'Database Error: Failed to Delete Invoice.' };
-  }
+  await prisma.invoice.delete({ where: { id } });
+  redirect('/dashboard/invoices');
 }
 
-export async function authenticate(
-  prevState: string | undefined,
-  formData: FormData,
-) {
-  try {
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
+export async function authenticate(prevState: string | undefined, formData: FormData) {
+  const email = formData.get('email') as string;
+  const password = formData.get('password') as string;
 
-    const { error } = await signIn(email, password);
-
-    if (error) {
-      return 'Invalid credentials.';
-    }
-  } catch (error) {
-    return 'Something went wrong.';
-  }
+  // Use NextAuth signIn via server action if needed, or redirect to login page
+  const session = await getSession();
+  if (!session) return 'Invalid credentials.';
 
   redirect('/dashboard');
 }

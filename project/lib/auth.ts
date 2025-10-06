@@ -1,22 +1,18 @@
-// lib/auth.ts
 import { getServerSession } from "next-auth";
-import { authOptions } from "./nextauth"; // <-- Correct path to nextauth.ts
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 /**
- * Get the current session on the server
+ * Get current session
  */
 export async function getSession() {
-  const session = await getServerSession(authOptions);
-  return session;
+  return await getServerSession(authOptions);
 }
 
 /**
- * Check if the user is authenticated
+ * Ensure user is authenticated
  */
 export async function requireAuth() {
   const session = await getServerSession(authOptions);
-  if (!session) {
-    throw new Error("Unauthorized");
-  }
+  if (!session) throw new Error("Unauthorized");
   return session;
 }
